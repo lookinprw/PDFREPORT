@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#cc0000" rx="64"/>
+  <text x="256" y="190" text-anchor="middle" fill="white" font-size="56" font-weight="bold" font-family="Arial,sans-serif">COMPACT</text>
+  <text x="256" y="290" text-anchor="middle" fill="white" font-size="60" font-family="Arial,sans-serif">ตรวจรับ</text>
+  <text x="256" y="380" text-anchor="middle" fill="white" font-size="60" font-family="Arial,sans-serif">สินค้า</text>
+</svg>

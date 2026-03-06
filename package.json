@@ -1,0 +1,21 @@
+{
+  "name": "goods-receiving-inspection",
+  "version": "1.0.0",
+  "description": "เอกสารตรวจรับสินค้า - Goods Receiving Inspection Report PWA",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "setup-db": "node setup-db.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "connect-pg-simple": "^10.0.0",
+    "dotenv": "^17.3.1",
+    "express": "^4.21.0",
+    "express-session": "^1.19.0",
+    "multer": "^1.4.5-lts.1",
+    "pg": "^8.13.0",
+    "puppeteer": "^23.0.0",
+    "uuid": "^10.0.0"
+  }
+}
