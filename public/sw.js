@@ -1,14 +1,15 @@
-const CACHE_NAME = 'goods-receiving-v6';
+const CACHE_NAME = 'goods-receiving-v7';
+const BASE = self.registration.scope;
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/style.css',
-  '/app.js',
-  '/pdf-gen.js',
-  '/manifest.json',
-  '/icons/logo.png',
-  '/lib/jspdf.umd.min.js',
-  '/lib/html2canvas.min.js',
+  './',
+  './index.html',
+  './style.css',
+  './app.js',
+  './pdf-gen.js',
+  './manifest.json',
+  './icons/logo.png',
+  './lib/jspdf.umd.min.js',
+  './lib/html2canvas.min.js',
 ];
 
 // Install: cache all assets
@@ -56,7 +57,7 @@ self.addEventListener('fetch', (event) => {
         return response;
       }).catch(() => {
         if (request.headers.get('accept') && request.headers.get('accept').includes('text/html')) {
-          return caches.match('/index.html');
+          return caches.match(BASE + 'index.html') || caches.match('./index.html');
         }
       });
     })

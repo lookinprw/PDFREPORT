@@ -53,7 +53,7 @@ async function generateReportPDF(data) {
   // Get logo
   let logoB64 = '';
   try {
-    const resp = await fetch('/icons/logo.png');
+    const resp = await fetch('./icons/logo.png');
     const blob = await resp.blob();
     logoB64 = await blobToDataURL(blob);
   } catch (e) {}
