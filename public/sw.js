@@ -1,19 +1,30 @@
-const CACHE_NAME = 'goods-receiving-v4';
+const CACHE_NAME = 'goods-receiving-v5';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/style.css',
   '/app.js',
+  '/pdf-gen.js',
   '/manifest.json',
-  '/login.html',
-  '/login.css',
-  '/login.js',
+  '/icons/logo.png',
 ];
 
-// Install: cache static assets
+const CDN_ASSETS = [
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+  'https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap',
+];
+
+// Install: cache all assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
+    caches.open(CACHE_NAME).then(async (cache) => {
+      await cache.addAll(STATIC_ASSETS);
+      // Cache CDN assets (best effort)
+      for (const url of CDN_ASSETS) {
+        try { await cache.add(url); } catch (e) { console.warn('CDN cache miss:', url); }
+      }
+    })
   );
   self.skipWaiting();
 });
@@ -28,28 +39,34 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch: network-first for API, cache-first for static
+// Fetch: cache-first for everything (offline-first PWA)
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  const url = new URL(request.url);
-
-  // Skip non-GET
   if (request.method !== 'GET') return;
 
-  // API calls: network only
-  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/pdf/')) return;
+  // Translation API — network only, don't cache
+  if (request.url.includes('mymemory.translated.net')) return;
 
-  // Static assets: network first, fallback to cache
   event.respondWith(
-    fetch(request).then((response) => {
-      if (response.ok) {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+    caches.match(request).then((cached) => {
+      if (cached) {
+        // Return cache, update in background
+        const fetchPromise = fetch(request).then((response) => {
+          if (response.ok) {
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, response));
+          }
+        }).catch(() => {});
+        return cached;
       }
-      return response;
-    }).catch(() => {
-      return caches.match(request).then((cached) => {
-        if (cached) return cached;
+      // Not cached — fetch and cache
+      return fetch(request).then((response) => {
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+        }
+        return response;
+      }).catch(() => {
+        // Offline fallback for HTML
         if (request.headers.get('accept') && request.headers.get('accept').includes('text/html')) {
           return caches.match('/index.html');
         }

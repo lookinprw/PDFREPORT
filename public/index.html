@@ -11,6 +11,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
+  <!-- jsPDF + html2canvas for client-side PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
 
@@ -20,36 +23,21 @@
       <div class="top-bar-title">เอกสารตรวจรับสินค้า</div>
       <div class="top-bar-company">COMPACT INTERNATIONAL</div>
     </div>
-    <div class="top-bar-actions">
-      <button type="button" class="btn-gallery-toggle" id="btnGalleryToggle" onclick="toggleGallery()">
-        <span id="galleryIcon">&#127968;</span>
-      </button>
-      <div class="user-menu" id="userMenu">
-        <button type="button" class="btn-user-menu" id="btnUserMenu" onclick="toggleUserMenu()">
-          <span class="user-avatar" id="userAvatar">A</span>
-        </button>
-        <div class="user-dropdown" id="userDropdown">
-          <div class="user-dropdown-header">
-            <div class="user-dropdown-name" id="dropdownName">-</div>
-            <div class="user-dropdown-role" id="dropdownRole">-</div>
-          </div>
-          <div class="user-dropdown-divider"></div>
-          <button type="button" class="user-dropdown-item" id="btnAdminPanel" onclick="showAdminPanel()" style="display:none">
-            จัดการระบบ
-          </button>
-          <button type="button" class="user-dropdown-item user-dropdown-logout" onclick="handleLogout()">
-            ออกจากระบบ
-          </button>
-        </div>
-      </div>
-    </div>
+    <button type="button" class="btn-gallery-toggle" id="btnGalleryToggle" onclick="toggleGallery()">
+      <span id="galleryIcon">&#127968;</span>
+    </button>
   </header>
 
-  <!-- Gallery View (shown by default — main landing page) -->
+  <!-- Online/Offline indicator -->
+  <div class="status-bar" id="statusBar" style="display:none">
+    <span id="statusText"></span>
+  </div>
+
+  <!-- Gallery View (default landing) -->
   <div id="galleryView">
     <div class="gallery-container">
-      <!-- Dashboard Stats -->
-      <div class="dashboard-stats" id="dashboardStats">
+      <!-- Stats -->
+      <div class="dashboard-stats">
         <div class="stat-card">
           <div class="stat-number" id="statTotal">0</div>
           <div class="stat-label">ทั้งหมด</div>
@@ -57,10 +45,6 @@
         <div class="stat-card">
           <div class="stat-number" id="statMonth">0</div>
           <div class="stat-label">เดือนนี้</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-number" id="statMy">0</div>
-          <div class="stat-label">ของฉัน</div>
         </div>
       </div>
 
@@ -73,17 +57,9 @@
         มีแบบร่างที่ยังไม่เสร็จ — แตะเพื่อกลับไปแก้ไข
       </div>
 
-      <!-- Search Bar -->
+      <!-- Search -->
       <div class="search-bar">
         <input type="text" id="searchInput" placeholder="ค้นหา invoice, บริษัท, PO..." oninput="debounceSearch()">
-        <button type="button" class="btn-search-toggle" id="btnDateFilter" onclick="toggleDateFilter()">
-          &#128197;
-        </button>
-      </div>
-      <div class="date-filter" id="dateFilter" style="display:none">
-        <input type="date" id="dateFrom" onchange="loadGallery()">
-        <span>ถึง</span>
-        <input type="date" id="dateTo" onchange="loadGallery()">
       </div>
 
       <h2 class="gallery-title">เอกสารทั้งหมด</h2>
@@ -93,47 +69,9 @@
     </div>
   </div>
 
-  <!-- Admin Panel View -->
-  <div id="adminView" style="display:none">
-    <div class="admin-container">
-      <div class="admin-tabs">
-        <button type="button" class="admin-tab active" onclick="switchAdminTab('users')">ผู้ใช้</button>
-        <button type="button" class="admin-tab" onclick="switchAdminTab('roles')">บทบาท</button>
-        <button type="button" class="admin-tab" onclick="switchAdminTab('activity')">กิจกรรม</button>
-      </div>
-
-      <!-- Users Tab -->
-      <div class="admin-panel" id="panelUsers">
-        <div class="admin-panel-header">
-          <h3>จัดการผู้ใช้</h3>
-          <button type="button" class="btn-admin-add" onclick="showAddUserModal()">+ เพิ่มผู้ใช้</button>
-        </div>
-        <div id="usersList" class="admin-list"></div>
-      </div>
-
-      <!-- Roles Tab -->
-      <div class="admin-panel" id="panelRoles" style="display:none">
-        <div class="admin-panel-header">
-          <h3>จัดการบทบาท</h3>
-          <button type="button" class="btn-admin-add" onclick="showAddRoleModal()">+ เพิ่มบทบาท</button>
-        </div>
-        <div id="rolesList" class="admin-list"></div>
-      </div>
-
-      <!-- Activity Tab -->
-      <div class="admin-panel" id="panelActivity" style="display:none">
-        <div class="admin-panel-header">
-          <h3>บันทึกกิจกรรม</h3>
-        </div>
-        <div id="activityList" class="admin-list activity-log-list"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Form View (hidden by default) -->
+  <!-- Form View -->
   <div id="formView" style="display:none">
 
-    <!-- Draft saved indicator -->
     <div class="draft-indicator" id="draftIndicator" style="display:none">บันทึกแบบร่างแล้ว</div>
 
     <!-- Progress Bar -->
@@ -149,9 +87,7 @@
       <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
     </div>
 
-    <!-- Main Content -->
     <main class="main-content" id="mainContent">
-
       <!-- Step 0: Header Info -->
       <section class="wizard-step active" data-step="0">
         <div class="card">
@@ -189,7 +125,6 @@
         </div>
       </section>
 
-      <!-- Step 1: Page 1 -->
       <section class="wizard-step" data-step="1">
         <div class="card">
           <h2 class="section-title">หน้า 1/5 — วันที่รับสินค้า</h2>
@@ -198,7 +133,6 @@
         </div>
       </section>
 
-      <!-- Step 2: Page 2 -->
       <section class="wizard-step" data-step="2">
         <div class="card">
           <h2 class="section-title">หน้า 2/5 — การเคลื่อนย้าย</h2>
@@ -207,7 +141,6 @@
         </div>
       </section>
 
-      <!-- Step 3: Page 3 -->
       <section class="wizard-step" data-step="3">
         <div class="card">
           <h2 class="section-title">หน้า 3/5 — หลังการเคลื่อนย้ายเสร็จ</h2>
@@ -216,7 +149,6 @@
         </div>
       </section>
 
-      <!-- Step 4: Page 4 -->
       <section class="wizard-step" data-step="4">
         <div class="card">
           <h2 class="section-title">หน้า 4/5 — INVOICE</h2>
@@ -225,11 +157,9 @@
         </div>
       </section>
 
-      <!-- Step 5: Page 5 - Comment -->
       <section class="wizard-step" data-step="5">
         <div class="card">
           <h2 class="section-title">หน้า 5/5 — COMMENT</h2>
-
           <p class="section-desc">ถ่ายรูปประกอบ (สูงสุด 4 รูป)</p>
           <div class="photo-grid cols-2" id="grid_page5"></div>
 
@@ -263,29 +193,20 @@
           </div>
         </div>
       </section>
-
     </main>
 
-    <!-- Navigation Buttons -->
     <nav class="bottom-nav">
-      <button type="button" class="btn-nav btn-prev" id="btnPrev" onclick="prevStep()" style="visibility:hidden">
-        &#8592; ย้อนกลับ
-      </button>
-      <button type="button" class="btn-nav btn-next" id="btnNext" onclick="nextStep()">
-        ถัดไป &#8594;
-      </button>
-      <button type="button" class="btn-nav btn-submit" id="btnSubmit" onclick="submitForm()" style="display:none">
-        ส่งเอกสาร
-      </button>
+      <button type="button" class="btn-nav btn-prev" id="btnPrev" onclick="prevStep()" style="visibility:hidden">&#8592; ย้อนกลับ</button>
+      <button type="button" class="btn-nav btn-next" id="btnNext" onclick="nextStep()">ถัดไป &#8594;</button>
+      <button type="button" class="btn-nav btn-submit" id="btnSubmit" onclick="submitForm()" style="display:none">สร้าง PDF</button>
     </nav>
-
   </div>
 
   <!-- Loading Overlay -->
   <div class="overlay" id="loadingOverlay" style="display:none">
     <div class="overlay-content">
       <div class="spinner"></div>
-      <p>กำลังสร้าง PDF...</p>
+      <p id="loadingText">กำลังสร้าง PDF...</p>
     </div>
   </div>
 
@@ -294,26 +215,23 @@
     <div class="overlay-content success-modal">
       <div class="success-icon">&#10003;</div>
       <h3>สร้างเอกสารสำเร็จ!</h3>
-      <a id="pdfLink" href="#" target="_blank" class="btn-primary">เปิด PDF</a>
-      <button type="button" class="btn-secondary" onclick="resetForm()">สร้างเอกสารใหม่</button>
+      <button type="button" class="btn-primary" style="width:100%;margin-bottom:8px" onclick="downloadLastPDF()">ดาวน์โหลด PDF</button>
+      <button type="button" class="btn-secondary" style="width:100%;margin-bottom:8px" onclick="shareLastPDF()">แชร์ PDF</button>
+      <button type="button" class="btn-secondary" style="width:100%" onclick="resetForm()">สร้างเอกสารใหม่</button>
     </div>
   </div>
 
-  <!-- User/Role Modal -->
-  <div class="overlay" id="modalOverlay" style="display:none">
-    <div class="overlay-content modal-content" id="modalContent"></div>
-  </div>
-
-  <!-- Delete Confirm Modal -->
+  <!-- Delete Confirm -->
   <div class="overlay" id="deleteOverlay" style="display:none">
     <div class="overlay-content">
       <h3>ยืนยันการลบ</h3>
-      <p style="margin:12px 0;color:#666">ต้องการลบเอกสารนี้หรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้</p>
+      <p style="margin:12px 0;color:#666">ต้องการลบเอกสารนี้หรือไม่?</p>
       <button type="button" class="btn-primary" style="background:#dc2626;margin-bottom:8px;width:100%" onclick="confirmDelete()">ลบเอกสาร</button>
       <button type="button" class="btn-secondary" style="width:100%" onclick="cancelDelete()">ยกเลิก</button>
     </div>
   </div>
 
+  <script src="/pdf-gen.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>
