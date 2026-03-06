@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#F58220">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>เอกสารตรวจรับสินค้า</title>
+  <link rel="manifest" href="./manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css">
+  <!-- jsPDF + html2canvas (local copies for offline) -->
+  <script src="./lib/jspdf.umd.min.js"></script>
+  <script src="./lib/html2canvas.min.js"></script>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <header class="top-bar">
+    <div class="top-bar-inner">
+      <div class="top-bar-title">เอกสารตรวจรับสินค้า</div>
+      <div class="top-bar-company">COMPACT INTERNATIONAL</div>
+    </div>
+    <button type="button" class="btn-gallery-toggle" id="btnGalleryToggle" onclick="toggleGallery()">
+      <span id="galleryIcon">&#127968;</span>
+    </button>
+  </header>
+
+  <!-- Online/Offline indicator -->
+  <div class="status-bar" id="statusBar" style="display:none">
+    <span id="statusText"></span>
+  </div>
+
+  <!-- Gallery View (default landing) -->
+  <div id="galleryView">
+    <div class="gallery-container">
+      <!-- Stats -->
+      <div class="dashboard-stats">
+        <div class="stat-card">
+          <div class="stat-number" id="statTotal">0</div>
+          <div class="stat-label">ทั้งหมด</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="statMonth">0</div>
+          <div class="stat-label">เดือนนี้</div>
+        </div>
+      </div>
+
+      <button type="button" class="btn-new-report" id="btnNewReport" onclick="showForm()">
+        <span class="btn-new-icon">+</span> สร้างเอกสารใหม่
+      </button>
+
+      <!-- Draft Banner -->
+      <div class="draft-banner" id="draftBanner" style="display:none" onclick="restoreDraft()">
+        มีแบบร่างที่ยังไม่เสร็จ — แตะเพื่อกลับไปแก้ไข
+      </div>
+
+      <!-- Search -->
+      <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="ค้นหา invoice, บริษัท, PO..." oninput="debounceSearch()">
+      </div>
+
+      <h2 class="gallery-title">เอกสารทั้งหมด</h2>
+      <div id="galleryList" class="gallery-list">
+        <p class="gallery-loading">กำลังโหลด...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Form View -->
+  <div id="formView" style="display:none">
+
+    <div class="draft-indicator" id="draftIndicator" style="display:none">บันทึกแบบร่างแล้ว</div>
+
+    <!-- Progress Bar -->
+    <div class="progress-bar">
+      <div class="progress-steps">
+        <div class="step active" data-step="0"><span class="step-num">i</span><span class="step-label">ข้อมูล</span></div>
+        <div class="step" data-step="1"><span class="step-num">1</span><span class="step-label">รับสินค้า</span></div>
+        <div class="step" data-step="2"><span class="step-num">2</span><span class="step-label">เคลื่อนย้าย</span></div>
+        <div class="step" data-step="3"><span class="step-num">3</span><span class="step-label">เสร็จสิ้น</span></div>
+        <div class="step" data-step="4"><span class="step-num">4</span><span class="step-label">INVOICE</span></div>
+        <div class="step" data-step="5"><span class="step-num">5</span><span class="step-label">COMMENT</span></div>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+
+    <main class="main-content" id="mainContent">
+      <!-- Step 0: Header Info -->
+      <section class="wizard-step active" data-step="0">
+        <div class="card">
+          <h2 class="section-title">กรอกข้อมูลเอกสาร</h2>
+          <div class="form-group">
+            <label for="productType">ประเภทสินค้า</label>
+            <input type="text" id="productType" placeholder="เช่น BACKING PLATE, REPAIR KITS">
+          </div>
+          <div class="form-group">
+            <label for="receivedDate">วันที่รับสินค้า</label>
+            <input type="date" id="receivedDate">
+          </div>
+          <div class="form-group">
+            <label for="companyName">บริษัท</label>
+            <input type="text" id="companyName" placeholder="ชื่อบริษัทผู้ส่งสินค้า">
+          </div>
+          <div class="form-group">
+            <label for="invoiceNo">เลขที่ INVOICE</label>
+            <input type="text" id="invoiceNo" placeholder="เช่น Compact-20260205">
+          </div>
+          <div class="form-group">
+            <label for="poNo">เลขที่ PO</label>
+            <input type="text" id="poNo" placeholder="เช่น 2512PDC000015">
+          </div>
+          <div class="form-group">
+            <label>เลขที่ PDC</label>
+            <div id="pdcContainer">
+              <div class="pdc-row">
+                <input type="text" class="pdc-input" placeholder="เช่น 2601PDC000003">
+                <button type="button" class="btn-icon btn-remove-pdc" onclick="removePdc(this)" style="display:none">&times;</button>
+              </div>
+            </div>
+            <button type="button" class="btn-secondary btn-add-pdc" onclick="addPdc()">+ เพิ่มเลขที่ PDC</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="wizard-step" data-step="1">
+        <div class="card">
+          <h2 class="section-title">หน้า 1/5 — วันที่รับสินค้า</h2>
+          <p class="section-desc">ถ่ายรูปวันที่รับสินค้า (สูงสุด 4 รูป)</p>
+          <div class="photo-grid cols-2" id="grid_page1"></div>
+        </div>
+      </section>
+
+      <section class="wizard-step" data-step="2">
+        <div class="card">
+          <h2 class="section-title">หน้า 2/5 — การเคลื่อนย้าย</h2>
+          <p class="section-desc">ถ่ายรูปการเคลื่อนย้าย (สูงสุด 4 รูป)</p>
+          <div class="photo-grid cols-2" id="grid_page2"></div>
+        </div>
+      </section>
+
+      <section class="wizard-step" data-step="3">
+        <div class="card">
+          <h2 class="section-title">หน้า 3/5 — หลังการเคลื่อนย้ายเสร็จ</h2>
+          <p class="section-desc">ถ่ายรูปหลังการเคลื่อนย้ายเสร็จ (สูงสุด 4 รูป)</p>
+          <div class="photo-grid cols-2" id="grid_page3"></div>
+        </div>
+      </section>
+
+      <section class="wizard-step" data-step="4">
+        <div class="card">
+          <h2 class="section-title">หน้า 4/5 — INVOICE</h2>
+          <p class="section-desc">ถ่ายรูป INVOICE (สูงสุด 4 รูป)</p>
+          <div class="photo-grid cols-2" id="grid_page4"></div>
+        </div>
+      </section>
+
+      <section class="wizard-step" data-step="5">
+        <div class="card">
+          <h2 class="section-title">หน้า 5/5 — COMMENT</h2>
+          <p class="section-desc">ถ่ายรูปประกอบ (สูงสุด 4 รูป)</p>
+          <div class="photo-grid cols-2" id="grid_page5"></div>
+
+          <div class="form-group" style="margin-top:16px">
+            <label for="commentThai">ความเห็น (ภาษาไทย)</label>
+            <textarea id="commentThai" rows="3" placeholder="เช่น การวางสินค้าไม่สมดุล ทำให้เวลาเปิดตู้เกิดอันตราย..."></textarea>
+          </div>
+          <div class="form-group">
+            <label for="commentEnglish">
+              Comment (English)
+              <span class="auto-translate-badge" id="autoTranslateBadge" style="display:none">auto-translated</span>
+            </label>
+            <textarea id="commentEnglish" rows="3" placeholder="e.g. Unbalanced product placement creates a safety hazard..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>ลายเซ็น</label>
+            <div class="signature-wrapper">
+              <canvas id="signatureCanvas" width="340" height="150"></canvas>
+              <button type="button" class="btn-secondary btn-clear-sig" onclick="clearSignature()">ล้างลายเซ็น</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="recorderName">ผู้บันทึกข้อมูล (ชื่อ-นามสกุล)</label>
+            <input type="text" id="recorderName" placeholder="เช่น นลิน จรถวิล">
+          </div>
+          <div class="form-group">
+            <label for="recorderPosition">ตำแหน่ง</label>
+            <input type="text" id="recorderPosition" placeholder="เช่น หัวหน้าแผนกธุรการคลังวัตถุดิบ">
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <nav class="bottom-nav">
+      <button type="button" class="btn-nav btn-prev" id="btnPrev" onclick="prevStep()" style="visibility:hidden">&#8592; ย้อนกลับ</button>
+      <button type="button" class="btn-nav btn-next" id="btnNext" onclick="nextStep()">ถัดไป &#8594;</button>
+      <button type="button" class="btn-nav btn-submit" id="btnSubmit" onclick="submitForm()" style="display:none">สร้าง PDF</button>
+    </nav>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div class="overlay" id="loadingOverlay" style="display:none">
+    <div class="overlay-content">
+      <div class="spinner"></div>
+      <p id="loadingText">กำลังสร้าง PDF...</p>
+    </div>
+  </div>
+
+  <!-- Success Modal -->
+  <div class="overlay" id="successOverlay" style="display:none">
+    <div class="overlay-content success-modal">
+      <div class="success-icon">&#10003;</div>
+      <h3>สร้างเอกสารสำเร็จ!</h3>
+      <button type="button" class="btn-primary" style="width:100%;margin-bottom:8px" onclick="downloadLastPDF()">ดาวน์โหลด PDF</button>
+      <button type="button" class="btn-secondary" style="width:100%;margin-bottom:8px" onclick="shareLastPDF()">แชร์ PDF</button>
+      <button type="button" class="btn-secondary" style="width:100%" onclick="resetForm()">สร้างเอกสารใหม่</button>
+    </div>
+  </div>
+
+  <!-- Delete Confirm -->
+  <div class="overlay" id="deleteOverlay" style="display:none">
+    <div class="overlay-content">
+      <h3>ยืนยันการลบ</h3>
+      <p style="margin:12px 0;color:#666">ต้องการลบเอกสารนี้หรือไม่?</p>
+      <button type="button" class="btn-primary" style="background:#dc2626;margin-bottom:8px;width:100%" onclick="confirmDelete()">ลบเอกสาร</button>
+      <button type="button" class="btn-secondary" style="width:100%" onclick="cancelDelete()">ยกเลิก</button>
+    </div>
+  </div>
+
+  <script src="./pdf-gen.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
