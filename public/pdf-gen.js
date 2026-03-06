@@ -1,12 +1,14 @@
 // ============================================================
 // CLIENT-SIDE PDF GENERATION using jsPDF + html2canvas
+// Pixel-based layout: A4 = 794 x 1123 px at 96dpi
 // ============================================================
 
-async function generateReportPDF(data) {
-  // data = { product_type, received_date, company_name, invoice_no, po_no,
-  //          pdcArray, comment_thai, comment_english, recorder_name, recorder_position,
-  //          photos: { page1_photo_0: dataURL, ... }, signature_data }
+// A4 dimensions in pixels (96dpi)
+const PG_W = 794;
+const PG_H = 1123;
+const PG_PAD = 0; // no padding on page div — border is the edge
 
+async function generateReportPDF(data) {
   // Format dates
   let displayDate = '';
   let thaiDay = '', thaiMonth = '', thaiYear = '';
@@ -22,33 +24,39 @@ async function generateReportPDF(data) {
     thaiYear = String(yearBE);
   }
 
+  const esc = (s) => (s || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
   const pdcHtml = (data.pdcArray || [])
-    .map(p => `<div style="font-weight:700;font-size:11pt;">${p}</div>`)
+    .map(p => `<div style="font-weight:700;font-size:14px;">${esc(p)}</div>`)
     .join('');
 
-  // Build photo HTML for a page
-  const buildPhotos = (pageNum) => {
+  // Build photo grid — 2 columns, photos fill available space
+  const buildPhotos = (pageNum, maxH) => {
     const imgs = [];
     for (let i = 0; i < 4; i++) {
       const key = `page${pageNum}_photo_${i}`;
       if (data.photos[key]) {
-        imgs.push(`<img src="${data.photos[key]}" style="max-width:48%;max-height:200px;object-fit:contain;" />`);
+        imgs.push(`<img src="${data.photos[key]}" style="width:100%;height:100%;object-fit:contain;" />`);
       }
     }
-    return imgs.join('');
+    if (imgs.length === 0) return '';
+    const cellH = imgs.length <= 2 ? maxH : Math.floor(maxH / 2) - 4;
+    return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:6px;">
+      ${imgs.map(img => `<div style="height:${cellH}px;overflow:hidden;display:flex;align-items:center;justify-content:center;">${img}</div>`).join('')}
+    </div>`;
   };
 
   const sigImg = data.signature_data
-    ? `<img src="${data.signature_data}" style="display:block;margin:0 auto 1mm;max-height:50px;" />`
+    ? `<img src="${data.signature_data}" style="display:block;margin:0 auto 4px;max-height:55px;" />`
     : '';
 
-  // Get logo as data URL
+  // Get logo
   let logoB64 = '';
   try {
     const resp = await fetch('/icons/logo.png');
     const blob = await resp.blob();
     logoB64 = await blobToDataURL(blob);
-  } catch (e) { /* no logo */ }
+  } catch (e) {}
 
   const pageLabels = [
     'วันที่รับสินค้า',
@@ -58,120 +66,151 @@ async function generateReportPDF(data) {
     'COMMENT',
   ];
 
-  // Build header HTML (repeated on every page)
+  // Shared CSS for all pages
+  const pageCSS = `
+    * { margin:0; padding:0; box-sizing:border-box; }
+    .page {
+      width:${PG_W}px;
+      height:${PG_H}px;
+      border:2px solid #000;
+      font-family:'Sarabun',sans-serif;
+      font-size:14px;
+      color:#000;
+      background:#fff;
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+    }
+    .row { padding:5px 12px; border-bottom:1px solid #000; }
+    .row-header {
+      display:flex;
+      align-items:center;
+      padding:8px 12px;
+      border-bottom:1px solid #000;
+    }
+    .logo { width:65px; height:auto; margin-right:10px; flex-shrink:0; }
+    .company { flex:1; }
+    .cname { font-size:18px; font-weight:700; }
+    .caddr { font-size:11px; color:#333; line-height:1.3; }
+    .page-num { text-align:right; white-space:nowrap; font-size:14px; flex-shrink:0; }
+    .page-num .num {
+      display:inline-block; min-width:28px; text-align:center;
+      border-bottom:1px solid #000; font-weight:700; font-size:16px;
+    }
+    .row-title { text-align:center; font-size:18px; font-weight:700; padding:6px 12px; border-bottom:1px solid #000; }
+    .row-field { display:flex; align-items:baseline; padding:4px 12px; border-bottom:1px solid #000; }
+    .lbl { font-weight:700; white-space:nowrap; }
+    .val { font-weight:700; background:#ffff99; padding:0 6px; margin-left:4px; }
+    .right { margin-left:auto; display:flex; align-items:baseline; white-space:nowrap; }
+    .val-po { font-weight:700; font-size:16px; background:#ffff99; padding:0 6px; margin-left:4px; }
+    .row-photo-label { display:flex; align-items:flex-start; padding:4px 12px; border-bottom:1px solid #000; }
+    .pdc { margin-left:auto; text-align:right; }
+    .photo-area { flex:1; overflow:hidden; }
+  `;
+
   const headerHTML = (pageNum) => `
-    <div style="display:flex;align-items:center;padding:2.5mm 3mm;border-bottom:1pt solid #000;">
-      ${logoB64 ? `<img src="${logoB64}" style="width:17mm;height:auto;margin-right:3mm;flex-shrink:0;" />` : ''}
-      <div style="flex:1;">
-        <div style="font-size:15pt;font-weight:700;">COMPACT INTERNATIONAL (1994) CO.,LTD.</div>
-        <div style="font-size:8.5pt;color:#333;line-height:1.3;">36 Moo 4, Nong Chumphon, Khao Yoi District, Petchaburi Province 76140, THAILAND.<br/>TEL. 032-795-044-45 &nbsp; FAX. 032-795-046</div>
+    <div class="row-header">
+      ${logoB64 ? `<img class="logo" src="${logoB64}" />` : ''}
+      <div class="company">
+        <div class="cname">COMPACT INTERNATIONAL (1994) CO.,LTD.</div>
+        <div class="caddr">36 Moo 4, Nong Chumphon, Khao Yoi District, Petchaburi Province 76140, THAILAND.<br/>TEL. 032-795-044-45 &nbsp; FAX. 032-795-046</div>
       </div>
-      <div style="text-align:right;white-space:nowrap;font-size:10.5pt;flex-shrink:0;">
-        หน้าที่ : <span style="display:inline-block;min-width:8mm;text-align:center;border-bottom:1pt solid #000;font-weight:700;font-size:12pt;">${pageNum}</span>
-        / <span style="display:inline-block;min-width:8mm;text-align:center;border-bottom:1pt solid #000;font-weight:700;font-size:12pt;">5</span>
-      </div>
+      <div class="page-num">หน้าที่ : <span class="num">${pageNum}</span> / <span class="num">5</span></div>
     </div>
   `;
 
   const fieldsHTML = () => `
-    <div style="text-align:center;font-size:14pt;font-weight:700;padding:2mm 3mm;border-bottom:1pt solid #000;">เอกสารตรวจรับสินค้า</div>
-    <div style="display:flex;align-items:baseline;padding:1.5mm 3mm;border-bottom:1pt solid #000;">
-      <span style="font-weight:700;white-space:nowrap;">ประเภทสินค้า :</span>
-      <span style="font-weight:700;background:#ffff99;padding:0 2mm;margin-left:1mm;">${data.product_type || ''}</span>
+    <div class="row-title">เอกสารตรวจรับสินค้า</div>
+    <div class="row-field">
+      <span class="lbl">ประเภทสินค้า :</span>
+      <span class="val">${esc(data.product_type)}</span>
     </div>
-    <div style="display:flex;align-items:baseline;padding:1.5mm 3mm;border-bottom:1pt solid #000;">
-      <span style="font-weight:700;white-space:nowrap;">วันที่รับสินค้า :</span>
-      <span style="font-weight:700;background:#ffff99;padding:0 2mm;margin-left:1mm;">${displayDate}</span>
-      <span style="margin-left:auto;display:flex;align-items:baseline;white-space:nowrap;">
-        <span style="font-weight:700;">เลขที่ INVOICE :</span>
-        <span style="font-weight:700;background:#ffff99;padding:0 2mm;margin-left:1mm;">${data.invoice_no || ''}</span>
-      </span>
+    <div class="row-field">
+      <span class="lbl">วันที่รับสินค้า :</span>
+      <span class="val">${displayDate}</span>
+      <span class="right"><span class="lbl">เลขที่ INVOICE :</span><span class="val">${esc(data.invoice_no)}</span></span>
     </div>
-    <div style="display:flex;align-items:baseline;padding:1.5mm 3mm;border-bottom:1pt solid #000;">
-      <span style="font-weight:700;white-space:nowrap;">บริษัท :</span>
-      <span style="font-weight:700;background:#ffff99;padding:0 2mm;margin-left:1mm;">${data.company_name || ''}</span>
-      <span style="margin-left:auto;display:flex;align-items:baseline;white-space:nowrap;">
-        <span style="font-weight:700;">เลขที่ PO :</span>
-        <span style="font-weight:700;font-size:12pt;background:#ffff99;padding:0 2mm;margin-left:1mm;">${data.po_no || ''}</span>
-      </span>
+    <div class="row-field">
+      <span class="lbl">บริษัท :</span>
+      <span class="val">${esc(data.company_name)}</span>
+      <span class="right"><span class="lbl">เลขที่ PO :</span><span class="val-po">${esc(data.po_no)}</span></span>
     </div>
   `;
 
-  // Build pages 1-4 (standard photo pages)
-  let fullHTML = '';
+  // Photo area height: page height minus header (~65) - title(~32) - 3 fields(~90) - photo-label(~28) - border = ~908px available
+  const PHOTO_H = 870;
+
+  // Build pages 1-4
+  let allPages = '';
   for (let p = 1; p <= 4; p++) {
-    fullHTML += `
-      <div class="pdf-page" style="width:190mm;border:1.5pt solid #000;font-family:'Sarabun',sans-serif;font-size:11pt;color:#000;page-break-after:always;background:#fff;">
+    allPages += `
+      <div class="page" id="pdfPage${p}">
         ${headerHTML(p)}
         ${fieldsHTML()}
-        <div style="display:flex;align-items:flex-start;padding:1.5mm 3mm;border-bottom:1pt solid #000;">
-          <span style="font-weight:700;">รูปภาพ : ${pageLabels[p - 1]}</span>
-          <div style="margin-left:auto;text-align:right;font-weight:700;font-size:11pt;">${pdcHtml}</div>
+        <div class="row-photo-label">
+          <span class="lbl">รูปภาพ : ${pageLabels[p - 1]}</span>
+          <div class="pdc">${pdcHtml}</div>
         </div>
-        <div style="padding:2mm;text-align:center;">
-          <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:2mm;">${buildPhotos(p)}</div>
+        <div class="photo-area">
+          ${buildPhotos(p, PHOTO_H)}
         </div>
       </div>
     `;
   }
 
-  // Page 5 — comment + signature
-  fullHTML += `
-    <div class="pdf-page" style="width:190mm;border:1.5pt solid #000;font-family:'Sarabun',sans-serif;font-size:11pt;color:#000;background:#fff;">
+  // Page 5 — comment + photos + signature
+  const PAGE5_PHOTO_H = 340;
+  allPages += `
+    <div class="page" id="pdfPage5">
       ${headerHTML(5)}
       ${fieldsHTML()}
-      <div style="display:flex;align-items:flex-start;padding:1.5mm 3mm;border-bottom:1pt solid #000;">
-        <span style="font-weight:700;">รูปภาพ : COMMENT</span>
-        <div style="margin-left:auto;text-align:right;font-weight:700;font-size:11pt;">${pdcHtml}</div>
+      <div class="row-photo-label">
+        <span class="lbl">รูปภาพ : COMMENT</span>
+        <div class="pdc">${pdcHtml}</div>
       </div>
-      <div style="padding:2mm 3mm;border-bottom:1pt solid #000;">
-        <div style="font-weight:700;margin-bottom:1.5mm;">${data.comment_thai || ''}</div>
-        <div style="font-size:10pt;">${data.comment_english || ''}</div>
+      <div class="row" style="min-height:30px;">
+        <div style="font-weight:700;margin-bottom:3px;">${esc(data.comment_thai)}</div>
+        <div style="font-size:13px;">${esc(data.comment_english)}</div>
       </div>
-      <div style="padding:2mm;text-align:center;border-bottom:1pt solid #000;">
-        <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:2mm;">${buildPhotos(5)}</div>
+      <div style="height:${PAGE5_PHOTO_H}px;overflow:hidden;border-bottom:1px solid #000;">
+        ${buildPhotos(5, PAGE5_PHOTO_H)}
       </div>
-      <div style="padding:2mm 3mm;text-align:right;">
-        <div style="display:inline-block;border:1.5pt solid #000;padding:3mm 5mm;text-align:center;min-width:60mm;">
+      <div style="padding:8px 12px;text-align:right;flex:1;display:flex;align-items:flex-end;justify-content:flex-end;">
+        <div style="border:2px solid #000;padding:10px 18px;text-align:center;min-width:240px;">
           ${sigImg}
-          <div style="font-weight:700;text-decoration:underline;font-size:11pt;margin-bottom:1mm;">ผู้บันทึกข้อมูล</div>
-          <div style="font-weight:700;font-size:12pt;">${data.recorder_name || ''}</div>
-          <div style="font-weight:700;font-size:10.5pt;">ตำแหน่ง : ${data.recorder_position || ''}</div>
-          <div style="font-size:9.5pt;margin-top:1mm;">COMPACT INTERNATIONAL (1994) CO., LTD.</div>
-          <div style="margin-top:1.5mm;font-size:10.5pt;">
-            <span style="display:inline-block;min-width:10mm;text-align:center;border-bottom:1pt solid #000;margin:0 0.5mm;font-weight:700;">${thaiDay}</span> /
-            <span style="display:inline-block;min-width:10mm;text-align:center;border-bottom:1pt solid #000;margin:0 0.5mm;font-weight:700;">${thaiMonth}</span> /
-            <span style="display:inline-block;min-width:10mm;text-align:center;border-bottom:1pt solid #000;margin:0 0.5mm;font-weight:700;">${thaiYear}</span>
+          <div style="font-weight:700;text-decoration:underline;font-size:14px;margin-bottom:3px;">ผู้บันทึกข้อมูล</div>
+          <div style="font-weight:700;font-size:16px;">${esc(data.recorder_name)}</div>
+          <div style="font-weight:700;font-size:13px;">ตำแหน่ง : ${esc(data.recorder_position)}</div>
+          <div style="font-size:12px;margin-top:4px;">COMPACT INTERNATIONAL (1994) CO., LTD.</div>
+          <div style="margin-top:6px;font-size:14px;">
+            <span style="display:inline-block;min-width:36px;text-align:center;border-bottom:1px solid #000;margin:0 2px;font-weight:700;">${thaiDay}</span> /
+            <span style="display:inline-block;min-width:36px;text-align:center;border-bottom:1px solid #000;margin:0 2px;font-weight:700;">${thaiMonth}</span> /
+            <span style="display:inline-block;min-width:36px;text-align:center;border-bottom:1px solid #000;margin:0 2px;font-weight:700;">${thaiYear}</span>
           </div>
         </div>
       </div>
     </div>
   `;
 
-  // Render in hidden container
+  // Create render container
   const container = document.createElement('div');
   container.id = 'pdf-render-area';
   container.style.cssText = 'position:fixed;left:-9999px;top:0;z-index:-1;background:#fff;';
-  container.innerHTML = fullHTML;
+  container.innerHTML = `<style>${pageCSS}</style>${allPages}`;
   document.body.appendChild(container);
 
-  // Wait for images to load
+  // Wait for all images to load
   const images = container.querySelectorAll('img');
   await Promise.all(Array.from(images).map(img => {
     if (img.complete) return Promise.resolve();
-    return new Promise(resolve => {
-      img.onload = resolve;
-      img.onerror = resolve;
-    });
+    return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
   }));
+  await new Promise(r => setTimeout(r, 400));
 
-  // Small delay for rendering
-  await new Promise(r => setTimeout(r, 300));
-
-  // Capture each page
-  const pages = container.querySelectorAll('.pdf-page');
+  // Capture each page to PDF
+  const pages = container.querySelectorAll('.page');
   const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: [PG_W, PG_H], hotfixes: ['px_scaling'] });
 
   for (let i = 0; i < pages.length; i++) {
     const canvas = await html2canvas(pages[i], {
@@ -179,23 +218,16 @@ async function generateReportPDF(data) {
       useCORS: true,
       allowTaint: true,
       backgroundColor: '#ffffff',
-      width: pages[i].scrollWidth,
-      height: pages[i].scrollHeight,
+      width: PG_W,
+      height: PG_H,
     });
 
     const imgData = canvas.toDataURL('image/jpeg', 0.92);
-    const pdfWidth = 210; // A4 width mm
-    const pdfHeight = 297; // A4 height mm
-    const imgWidth = pdfWidth - 16; // 8mm margins
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-    if (i > 0) pdf.addPage();
-    pdf.addImage(imgData, 'JPEG', 8, 8, imgWidth, Math.min(imgHeight, pdfHeight - 16));
+    if (i > 0) pdf.addPage([PG_W, PG_H]);
+    pdf.addImage(imgData, 'JPEG', 0, 0, PG_W, PG_H);
   }
 
-  // Cleanup
   document.body.removeChild(container);
-
   return pdf;
 }
 
