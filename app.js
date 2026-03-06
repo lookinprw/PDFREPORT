@@ -112,7 +112,7 @@ function createPhotoSlots() {
       const fieldName = `page${page}_photo_${i}`;
       container.innerHTML += `
         <div class="photo-slot" id="slot_${fieldName}">
-          <input type="file" accept="image/*" capture="environment"
+          <input type="file" accept="image/*"
                  onchange="handlePhoto(this, '${fieldName}')" class="photo-input">
           <div class="photo-placeholder-ui" onclick="this.previousElementSibling.click()">
             <div class="camera-icon">&#128247;</div>
