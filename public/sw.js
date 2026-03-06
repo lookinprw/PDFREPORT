@@ -1,4 +1,4 @@
-const CACHE_NAME = 'goods-receiving-v5';
+const CACHE_NAME = 'goods-receiving-v6';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -7,24 +7,14 @@ const STATIC_ASSETS = [
   '/pdf-gen.js',
   '/manifest.json',
   '/icons/logo.png',
-];
-
-const CDN_ASSETS = [
-  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
-  'https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap',
+  '/lib/jspdf.umd.min.js',
+  '/lib/html2canvas.min.js',
 ];
 
 // Install: cache all assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(async (cache) => {
-      await cache.addAll(STATIC_ASSETS);
-      // Cache CDN assets (best effort)
-      for (const url of CDN_ASSETS) {
-        try { await cache.add(url); } catch (e) { console.warn('CDN cache miss:', url); }
-      }
-    })
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
   );
   self.skipWaiting();
 });
@@ -51,14 +41,13 @@ self.addEventListener('fetch', (event) => {
     caches.match(request).then((cached) => {
       if (cached) {
         // Return cache, update in background
-        const fetchPromise = fetch(request).then((response) => {
+        fetch(request).then((response) => {
           if (response.ok) {
             caches.open(CACHE_NAME).then((cache) => cache.put(request, response));
           }
         }).catch(() => {});
         return cached;
       }
-      // Not cached — fetch and cache
       return fetch(request).then((response) => {
         if (response.ok) {
           const clone = response.clone();
@@ -66,7 +55,6 @@ self.addEventListener('fetch', (event) => {
         }
         return response;
       }).catch(() => {
-        // Offline fallback for HTML
         if (request.headers.get('accept') && request.headers.get('accept').includes('text/html')) {
           return caches.match('/index.html');
         }
