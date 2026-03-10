@@ -11,6 +11,7 @@ let translateTimer = null;
 let autoTranslated = false;
 let lastPdfBlob = null;
 let lastPdfName = '';
+let editingReportId = null; // track if editing existing report
 
 // ============================================================
 // INDEXEDDB — local report storage
@@ -310,7 +311,7 @@ async function submitForm() {
     lastPdfBlob = pdf.output('blob');
     lastPdfName = pdfName;
 
-    // Save report metadata + PDF blob to IndexedDB
+    // Save report metadata + PDF blob + full form data to IndexedDB
     const dbRecord = {
       invoice_no: reportData.invoice_no,
       po_no: reportData.po_no,
@@ -322,8 +323,15 @@ async function submitForm() {
       pdf_blob: lastPdfBlob,
       pdf_name: pdfName,
       created_at: new Date().toISOString(),
+      // Full form data for edit & re-export
+      form_data: reportData,
     };
 
+    if (editingReportId) {
+      // Delete old report, save as new
+      await deleteReportFromDB(editingReportId);
+      editingReportId = null;
+    }
     await saveReport(dbRecord);
     clearDraft();
 
@@ -382,6 +390,7 @@ function resetForm() {
   clearDraft();
   lastPdfBlob = null;
   lastPdfName = '';
+  editingReportId = null;
   showGallery();
 }
 
@@ -464,6 +473,7 @@ async function loadGallery() {
             </div>
             <div class="gallery-card-arrow">&#8250;</div>
           </div>
+          <button type="button" class="btn-edit-report" onclick="event.stopPropagation();editReport(${r.id})" title="แก้ไข">&#9998;</button>
           <button type="button" class="btn-delete-report" onclick="event.stopPropagation();deleteReport(${r.id})" title="ลบ">&times;</button>
         </div>`;
     }).join('');
@@ -481,6 +491,74 @@ async function openReport(id) {
     }
   } catch (e) {
     alert('ไม่สามารถเปิดเอกสารได้');
+  }
+}
+
+// ============================================================
+// EDIT & RE-EXPORT
+// ============================================================
+async function editReport(id) {
+  try {
+    const report = await getReport(id);
+    if (!report || !report.form_data) {
+      alert('ไม่สามารถแก้ไขเอกสารนี้ได้ (ไม่มีข้อมูลฟอร์ม)');
+      return;
+    }
+    const fd = report.form_data;
+
+    // Set editing mode
+    editingReportId = id;
+
+    // Populate form fields
+    document.getElementById('productType').value = fd.product_type || '';
+    document.getElementById('receivedDate').value = fd.received_date || '';
+    document.getElementById('companyName').value = fd.company_name || '';
+    document.getElementById('invoiceNo').value = fd.invoice_no || '';
+    document.getElementById('poNo').value = fd.po_no || '';
+    document.getElementById('commentThai').value = fd.comment_thai || '';
+    document.getElementById('commentEnglish').value = fd.comment_english || '';
+    document.getElementById('recorderName').value = fd.recorder_name || '';
+    document.getElementById('recorderPosition').value = fd.recorder_position || '';
+
+    // Restore PDC numbers
+    if (fd.pdcArray && fd.pdcArray.length > 0) {
+      const container = document.getElementById('pdcContainer');
+      container.innerHTML = '';
+      fd.pdcArray.forEach((val, i) => {
+        const row = document.createElement('div');
+        row.className = 'pdc-row';
+        row.innerHTML = `
+          <input type="text" class="pdc-input" placeholder="เช่น 2601PDC000003" value="${val}">
+          <button type="button" class="btn-icon btn-remove-pdc" onclick="removePdc(this)" style="${i === 0 && fd.pdcArray.length === 1 ? 'display:none' : ''}">&times;</button>`;
+        container.appendChild(row);
+      });
+      updatePdcRemoveButtons();
+    }
+
+    // Restore photos
+    Object.keys(photoFiles).forEach(k => delete photoFiles[k]);
+    if (fd.photos) {
+      Object.entries(fd.photos).forEach(([fieldName, dataURL]) => {
+        photoFiles[fieldName] = dataURL;
+        const slot = document.getElementById('slot_' + fieldName);
+        if (slot) {
+          const placeholder = slot.querySelector('.photo-placeholder-ui');
+          const preview = slot.querySelector('.photo-preview');
+          const img = preview.querySelector('img');
+          img.src = dataURL;
+          placeholder.style.display = 'none';
+          preview.style.display = 'block';
+          slot.style.border = 'none';
+        }
+      });
+    }
+
+    // Switch to form view at step 0
+    showForm();
+    goToStep(0);
+  } catch (e) {
+    alert('ไม่สามารถโหลดข้อมูลได้: ' + e.message);
+    console.error(e);
   }
 }
 
