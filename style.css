@@ -301,6 +301,14 @@ body {
 .gallery-card-meta { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
 .gallery-card-arrow { color: #bbb; font-size: 1.2rem; flex-shrink: 0; }
 
+.btn-edit-report {
+  position: absolute; top: 8px; right: 44px;
+  width: 28px; height: 28px; border: none; border-radius: 50%;
+  background: #2563eb; color: #fff; font-size: 0.9rem;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2); z-index: 10;
+}
+.btn-edit-report:active { background: #1d4ed8; }
 .btn-delete-report {
   position: absolute; top: 8px; right: 8px;
   width: 28px; height: 28px; border: none; border-radius: 50%;
