@@ -41,7 +41,7 @@ async function generateReportPDF(data) {
     }
     if (imgs.length === 0) return '';
     const cols = imgs.length === 1 ? '1fr' : '1fr 1fr';
-    const cellH = imgs.length <= 2 ? maxH : Math.floor(maxH / 2) - 4;
+    const cellH = imgs.length === 1 ? maxH : Math.floor(maxH / 2) - 4;
     return `<div style="display:grid;grid-template-columns:${cols};gap:6px;padding:6px;">
       ${imgs.map(img => `<div style="height:${cellH}px;overflow:hidden;display:flex;align-items:center;justify-content:center;">${img}</div>`).join('')}
     </div>`;
