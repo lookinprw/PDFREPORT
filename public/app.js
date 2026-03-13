@@ -7,8 +7,6 @@ const photoFiles = {}; // { fieldName: dataURL }
 let deleteTargetId = null;
 let searchDebounceTimer = null;
 let draftSaveTimer = null;
-let translateTimer = null;
-let autoTranslated = false;
 let lastPdfBlob = null;
 let lastPdfName = '';
 let editingReportId = null; // track if editing existing report
@@ -85,7 +83,6 @@ createPhotoSlots();
 loadGallery();
 checkDraft();
 setupDraftAutosave();
-setupAutoTranslate();
 updateOnlineStatus();
 
 window.addEventListener('online', updateOnlineStatus);
@@ -691,41 +688,6 @@ function clearDraft() {
   try { localStorage.removeItem('draft'); } catch (e) { /* ignore */ }
   const banner = document.getElementById('draftBanner');
   if (banner) banner.style.display = 'none';
-}
-
-// ============================================================
-// AUTO-TRANSLATE Thai → English
-// ============================================================
-function setupAutoTranslate() {
-  const thaiField = document.getElementById('commentThai');
-  const engField = document.getElementById('commentEnglish');
-  const badge = document.getElementById('autoTranslateBadge');
-
-  thaiField.addEventListener('input', () => {
-    clearTimeout(translateTimer);
-    translateTimer = setTimeout(autoTranslate, 1500);
-  });
-  thaiField.addEventListener('blur', () => { clearTimeout(translateTimer); autoTranslate(); });
-  engField.addEventListener('input', () => {
-    if (autoTranslated) { autoTranslated = false; badge.style.display = 'none'; }
-  });
-}
-
-async function autoTranslate() {
-  const thaiField = document.getElementById('commentThai');
-  const engField = document.getElementById('commentEnglish');
-  const badge = document.getElementById('autoTranslateBadge');
-  const text = thaiField.value.trim();
-  if (!text || engField.value.trim() || !navigator.onLine) return;
-  try {
-    const resp = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=th|en`);
-    const data = await resp.json();
-    if (data.responseStatus === 200 && data.responseData.translatedText && !engField.value.trim()) {
-      engField.value = data.responseData.translatedText;
-      autoTranslated = true;
-      badge.style.display = 'inline';
-    }
-  } catch (e) { /* offline or failed */ }
 }
 
 // ============================================================
