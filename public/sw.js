@@ -1,4 +1,4 @@
-const CACHE_NAME = 'goods-receiving-v10';
+const CACHE_NAME = 'goods-receiving-v11';
 const BASE = self.registration.scope;
 const STATIC_ASSETS = [
   './',
