@@ -1,4 +1,4 @@
-const CACHE_NAME = 'goods-receiving-v8';
+const CACHE_NAME = 'goods-receiving-v9';
 const BASE = self.registration.scope;
 const STATIC_ASSETS = [
   './',
@@ -8,6 +8,7 @@ const STATIC_ASSETS = [
   './pdf-gen.js',
   './manifest.json',
   './icons/logo.png',
+  './icons/logo2.jpg',
   './lib/jspdf.umd.min.js',
   './lib/html2canvas.min.js',
 ];
