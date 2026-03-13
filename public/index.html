@@ -21,7 +21,7 @@
   <header class="top-bar">
     <div class="top-bar-inner">
       <div class="top-bar-title">เอกสารตรวจรับสินค้า</div>
-      <div class="top-bar-company">COMPACT INTERNATIONAL</div>
+      <div class="top-bar-company" id="topBarCompany">COMPACT INTERNATIONAL</div>
     </div>
     <button type="button" class="btn-gallery-toggle" id="btnGalleryToggle" onclick="toggleGallery()">
       <span id="galleryIcon">&#127968;</span>
@@ -92,6 +92,17 @@
       <section class="wizard-step active" data-step="0">
         <div class="card">
           <h2 class="section-title">กรอกข้อมูลเอกสาร</h2>
+          <div class="company-switch-group">
+            <label class="company-switch-title">เลือกบริษัท</label>
+            <div class="company-switch">
+              <span class="switch-option active" id="switchCPI">CPI</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="companyToggle" onchange="toggleCompany()">
+                <span class="toggle-slider"></span>
+              </label>
+              <span class="switch-option" id="switchACI">ACI</span>
+            </div>
+          </div>
           <div class="form-group">
             <label for="productType">ประเภทสินค้า</label>
             <input type="text" id="productType" placeholder="เช่น BACKING PLATE, REPAIR KITS">
@@ -113,14 +124,14 @@
             <input type="text" id="poNo" placeholder="เช่น 2512PDC000015">
           </div>
           <div class="form-group">
-            <label>เลขที่ PDC</label>
+            <label id="pdcLabel">เลขที่ PDC</label>
             <div id="pdcContainer">
               <div class="pdc-row">
                 <input type="text" class="pdc-input" placeholder="เช่น 2601PDC000003">
                 <button type="button" class="btn-icon btn-remove-pdc" onclick="removePdc(this)" style="display:none">&times;</button>
               </div>
             </div>
-            <button type="button" class="btn-secondary btn-add-pdc" onclick="addPdc()">+ เพิ่มเลขที่ PDC</button>
+            <button type="button" class="btn-secondary btn-add-pdc" id="btnAddPdc" onclick="addPdc()">+ เพิ่มเลขที่ PDC</button>
           </div>
         </div>
       </section>

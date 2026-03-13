@@ -51,10 +51,12 @@ async function generateReportPDF(data) {
     ? `<img src="${data.signature_data}" style="display:block;margin:0 auto 4px;max-height:55px;" />`
     : '';
 
-  // Get logo
+  // Get logo based on company
+  const isACI = data.company === 'ACI';
   let logoB64 = '';
   try {
-    const resp = await fetch('./icons/logo.png');
+    const logoPath = isACI ? './icons/logo2.jpg' : './icons/logo.png';
+    const resp = await fetch(logoPath);
     const blob = await resp.blob();
     logoB64 = await blobToDataURL(blob);
   } catch (e) {}
@@ -109,16 +111,29 @@ async function generateReportPDF(data) {
     .photo-area { flex:1; overflow:hidden; }
   `;
 
-  const headerHTML = (pageNum) => `
-    <div class="row-header">
-      ${logoB64 ? `<img class="logo" src="${logoB64}" />` : ''}
-      <div class="company">
-        <div class="cname">COMPACT INTERNATIONAL (1994) CO.,LTD.</div>
-        <div class="caddr">36 Moo 4, Nong Chumphon, Khao Yoi District, Petchaburi Province 76140, THAILAND.<br/>TEL. 032-795-044-45 &nbsp; FAX. 032-795-046</div>
-      </div>
-      <div class="page-num">หน้าที่ : <span class="num">${pageNum}</span> / <span class="num">5</span></div>
-    </div>
-  `;
+  const headerHTML = (pageNum) => {
+    if (isACI) {
+      return `
+        <div class="row-header">
+          <div class="company" style="flex:1;">
+            <div style="font-size:14px;font-weight:600;color:#000;">บริษัท เอเชียคอมแพ็ค จำกัด</div>
+            <div class="cname" style="color:#000;">ASIA COMPACT INDUSTRY CO., LTD.</div>
+            <div class="caddr" style="color:#000;line-height:1.4;">53 - 55 ถนนโยธา แขวงตลาดน้อย เขตสัมพันธวงศ์ กรุงเทพมหานคร 10100<br/>53 - 55 Yotha Rd., Taladnoi, Samphanthawong, Bangkok 10100<br/>Tel: 02 235 8311-2 &nbsp; Website: www.compact-brake.com</div>
+          </div>
+          ${logoB64 ? `<img src="${logoB64}" style="width:130px;height:auto;margin:0 10px;flex-shrink:0;" />` : ''}
+          <div class="page-num">หน้าที่ : <span class="num">${pageNum}</span> / <span class="num">5</span></div>
+        </div>`;
+    }
+    return `
+      <div class="row-header">
+        ${logoB64 ? `<img class="logo" src="${logoB64}" />` : ''}
+        <div class="company">
+          <div class="cname">COMPACT INTERNATIONAL (1994) CO.,LTD.</div>
+          <div class="caddr">36 Moo 4, Nong Chumphon, Khao Yoi District, Petchaburi Province 76140, THAILAND.<br/>TEL. 032-795-044-45 &nbsp; FAX. 032-795-046</div>
+        </div>
+        <div class="page-num">หน้าที่ : <span class="num">${pageNum}</span> / <span class="num">5</span></div>
+      </div>`;
+  };
 
   const fieldsHTML = () => `
     <div class="row-title">เอกสารตรวจรับสินค้า</div>
@@ -182,7 +197,7 @@ async function generateReportPDF(data) {
           <div style="font-weight:700;text-decoration:underline;font-size:14px;margin-bottom:3px;">ผู้บันทึกข้อมูล</div>
           <div style="font-weight:700;font-size:16px;">${esc(data.recorder_name)}</div>
           <div style="font-weight:700;font-size:13px;">ตำแหน่ง : ${esc(data.recorder_position)}</div>
-          <div style="font-size:12px;margin-top:4px;">COMPACT INTERNATIONAL (1994) CO., LTD.</div>
+          <div style="font-size:12px;margin-top:4px;">${isACI ? 'ASIA COMPACT INDUSTRY CO., LTD.' : 'COMPACT INTERNATIONAL (1994) CO., LTD.'}</div>
           <div style="margin-top:6px;font-size:14px;">
             <span style="display:inline-block;min-width:36px;text-align:center;border-bottom:1px solid #000;margin:0 2px;font-weight:700;">${thaiDay}</span> /
             <span style="display:inline-block;min-width:36px;text-align:center;border-bottom:1px solid #000;margin:0 2px;font-weight:700;">${thaiMonth}</span> /

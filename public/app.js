@@ -12,6 +12,7 @@ let autoTranslated = false;
 let lastPdfBlob = null;
 let lastPdfName = '';
 let editingReportId = null; // track if editing existing report
+let currentCompany = 'CPI'; // 'CPI' or 'ACI'
 
 // ============================================================
 // INDEXEDDB — local report storage
@@ -189,6 +190,25 @@ function updatePdcRemoveButtons() {
 }
 
 // ============================================================
+// COMPANY TOGGLE
+// ============================================================
+function toggleCompany() {
+  const toggle = document.getElementById('companyToggle');
+  currentCompany = toggle.checked ? 'ACI' : 'CPI';
+  applyCompanyMode();
+}
+
+function applyCompanyMode() {
+  const isACI = currentCompany === 'ACI';
+  document.getElementById('companyToggle').checked = isACI;
+  document.getElementById('switchCPI').classList.toggle('active', !isACI);
+  document.getElementById('switchACI').classList.toggle('active', isACI);
+  document.getElementById('topBarCompany').textContent = isACI ? 'ASIA COMPACT INDUSTRY' : 'COMPACT INTERNATIONAL';
+  document.getElementById('pdcLabel').textContent = isACI ? 'เลขที่ PO เพิ่มเติม' : 'เลขที่ PDC';
+  document.getElementById('btnAddPdc').textContent = isACI ? '+ เพิ่มเลขที่ PO เพิ่มเติม' : '+ เพิ่มเลขที่ PDC';
+}
+
+// ============================================================
 // PHOTO HANDLING — store as dataURL (for offline + PDF)
 // ============================================================
 function handlePhoto(input, fieldName) {
@@ -303,6 +323,7 @@ async function submitForm() {
       recorder_position: document.getElementById('recorderPosition').value.trim(),
       photos: { ...photoFiles },
       signature_data: getSignatureData(),
+      company: currentCompany,
     };
 
     // Generate PDF client-side
@@ -320,6 +341,7 @@ async function submitForm() {
       received_date: reportData.received_date,
       recorder_name: reportData.recorder_name,
       comment_thai: reportData.comment_thai,
+      company: currentCompany,
       pdf_blob: lastPdfBlob,
       pdf_name: pdfName,
       created_at: new Date().toISOString(),
@@ -391,6 +413,8 @@ function resetForm() {
   lastPdfBlob = null;
   lastPdfName = '';
   editingReportId = null;
+  currentCompany = 'CPI';
+  applyCompanyMode();
   showGallery();
 }
 
@@ -535,6 +559,9 @@ async function editReport(id) {
       updatePdcRemoveButtons();
     }
 
+    // Restore company mode
+    if (fd.company) { currentCompany = fd.company; applyCompanyMode(); }
+
     // Restore photos
     Object.keys(photoFiles).forEach(k => delete photoFiles[k]);
     if (fd.photos) {
@@ -607,6 +634,7 @@ function saveDraft() {
     commentEnglish: document.getElementById('commentEnglish').value,
     recorderName: document.getElementById('recorderName').value,
     recorderPosition: document.getElementById('recorderPosition').value,
+    company: currentCompany,
     currentStep,
     savedAt: new Date().toISOString(),
   };
@@ -653,6 +681,7 @@ function restoreDraft() {
       });
       updatePdcRemoveButtons();
     }
+    if (draft.company) { currentCompany = draft.company; applyCompanyMode(); }
     showForm();
     if (draft.currentStep) goToStep(draft.currentStep);
   } catch (e) { /* ignore */ }
